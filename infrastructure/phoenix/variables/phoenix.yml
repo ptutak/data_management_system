@@ -1,0 +1,26 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+PHOENIX_DOWNLOAD_URL: "https://downloads.apache.org/phoenix/phoenix-{{ PHOENIX_VERSION }}/{{ PHOENIX_LONG_VERSION }}.tar.gz"
+PHOENIX_DOWNLOAD_DESTINATION: "{{ EXTRACT_DIR }}/{{ PHOENIX_LONG_VERSION }}.tar.gz"
+
+PHOENIX_QUERYSERVER_VERSION: 6.0.0.7.2.9.0-203
+PHOENIX_QUERYSERVER_LONG_VERSION: "phoenix-queryserver-{{ PHOENIX_QUERYSERVER_VERSION }}"
+PHOENIX_QUERYSERVER_DOWNLOAD_URL: "https://repository.cloudera.com/artifactory/cloudera-repos/org/apache/phoenix/phoenix-queryserver-assembly/{{ PHOENIX_QUERYSERVER_VERSION }}/phoenix-queryserver-assembly-{{ PHOENIX_QUERYSERVER_VERSION }}.tar.gz"
+PHOENIX_QUERYSERVER_DOWNLOAD_DESTINATION: "{{ EXTRACT_DIR }}/phoenix-queryserver-assembly-{{ PHOENIX_QUERYSERVER_VERSION }}.tar.gz"
+PHOENIX_QUERYSERVER_HOME: "{{ EXTRACT_DIR }}/phoenix"
+PHOENIX_QUERYSERVER_LINK: "{{ EXTRACT_DIR }}/{{ PHOENIX_QUERYSERVER_LONG_VERSION }}"
+
+PHOENIX_QUERYSERVER_PORTS:
+  - "{{ PHOENIX_QUERYSERVER_PORT }}/tcp"

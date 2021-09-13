@@ -1,0 +1,36 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+params:
+  - type: str
+    name: hdfs_ip
+    config_key: hdfs.namenode.master
+  - type: int
+    name: hdfs_rpc_port
+    config_key: hdfs.rpc.port
+  - type: int
+    name: hdfs_http_port
+    config_key: hdfs.http.port
+  - type: str
+    name: path
+  - type: str
+    name: schema_path
+  - type: List[str]
+    name: select_expr
+  # - type: str
+  #   name: queryserver_url
+  #   config_key: phoenix.queryserver.url
+  - type: str
+    name: zookeeper_url
+    config_key: phoenix.queryserver.zookeeper.url

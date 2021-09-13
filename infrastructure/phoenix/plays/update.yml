@@ -1,0 +1,58 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Phoenix Update
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/phoenix"
+    JAVA_HOME: "{{ JAVA_8_HOME }}"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/phoenix.yml"
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+  tasks:
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ PHOENIX_QUERYSERVER_PORTS }}"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy phoenix service file
+      when: ansible_host == PHOENIX_QUERYSERVER_MASTER
+      run_once: true
+      template:
+        src: "{{ app_dir }}/config_files/phoenix.service.j2"
+        dest: /usr/lib/systemd/system/phoenix.service
+
+    - name: Reload deamon
+      when: ansible_host == PHOENIX_QUERYSERVER_MASTER
+      run_once: true
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart phoenix.service
+      when: ansible_host == PHOENIX_QUERYSERVER_MASTER
+      run_once: true
+      systemd:
+        name: phoenix
+        state: restarted
+        enabled: yes

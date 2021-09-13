@@ -1,0 +1,66 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+EXTRACT_DIR: /opt
+JAVA_8_HOME: /usr/lib/jvm/jre-1.8.0-openjdk
+JAVA_11_HOME: /usr/lib/jvm/jre-11-openjdk
+
+
+HADOOP_HOME: "{{ EXTRACT_DIR }}/hadoop"
+HADOOP_CONF_DIR: "{{ HADOOP_HOME }}/etc/hadoop"
+HADOOP_NAMENODE_MASTER: 192.168.2.201
+HADOOP_DFS_NAMENODE_RPC_PORT: 9000
+HADOOP_DFS_NAMENODE_HTTP_PORT: 9870
+HADOOP_DFS_ADDRESS: "hdfs://{{ HADOOP_NAMENODE_MASTER }}:{{ HADOOP_DFS_NAMENODE_RPC_PORT }}"
+
+
+SPARK_HOME: "{{ EXTRACT_DIR }}/spark"
+SPARK_MASTER: 192.168.2.201
+
+FLINK_MASTER: 192.168.2.121
+FLINK_JOBMANAGER_WEB_PORT:
+  - 8081
+  - 8082
+
+ZOOKEEPER_PORT: 2181
+ZOOKEEPER_HOSTS: "{%- for host in groups['zookeeper'][:-1] -%}
+{{ hostvars[host]['ansible_host'] }}:{{ ZOOKEEPER_PORT }},
+{%- endfor -%}
+{{ hostvars[groups['zookeeper'][-1]]['ansible_host'] }}:{{ ZOOKEEPER_PORT }}"
+
+ZOOKEEPER_QUORUM: "{{ ','.join(groups['zookeeper']) }}"
+ZOOKEEPER_DATA_DIR: "/opt/zookeeper/data"
+
+
+KAFKA_PORT: 9092
+KAFKA_HOME: "{{ EXTRACT_DIR }}/kafka"
+KAFKA_HOSTS: "{%- for host in groups['kafka'][:-1] -%}
+PLAINTEXT://{{ hostvars[host]['ansible_host'] }}:{{ KAFKA_PORT }},
+{%- endfor -%}
+PLAINTEXT://{{ hostvars[groups['kafka'][-1]]['ansible_host'] }}:{{ KAFKA_PORT }}"
+KAFKA_REST_PORT: 8481
+SCHEMA_REGISTRY_PORT: 8081
+
+
+HBASE_MASTER: "{{ HADOOP_NAMENODE_MASTER }}"
+HBASE_MASTER_PORT: 16000
+HBASE_HOME: "{{ EXTRACT_DIR }}/hbase"
+
+PHOENIX_VERSION: 5.1.1
+PHOENIX_HBASE_VERSION: "hbase-2.4-{{ PHOENIX_VERSION }}"
+PHOENIX_LONG_VERSION: "phoenix-{{ PHOENIX_HBASE_VERSION }}-bin"
+PHOENIX_HOME: "{{ EXTRACT_DIR }}/{{ PHOENIX_LONG_VERSION }}"
+
+PHOENIX_QUERYSERVER_MASTER: "{{ HBASE_MASTER }}"
+PHOENIX_QUERYSERVER_PORT: 8765

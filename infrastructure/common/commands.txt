@@ -1,0 +1,4 @@
+sudo sed -e 's/192.168.2.101/192.168.2.107/' -i /etc/sysconfig/network-scripts/ifcfg-enp0s8
+sudo hostnamectl set-hostname kafka7
+sudo reboot
+ssh-copy-id -i ptutak.pub ptutak@192.168.2.101

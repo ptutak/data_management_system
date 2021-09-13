@@ -1,0 +1,110 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: HBase Update
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/hbase"
+    JAVA_HOME: "{{ JAVA_8_HOME }}"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/hbase.yml"
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+  tasks:
+    - name: Delete known_hosts file
+      when: ansible_host == HBASE_MASTER
+      file:
+        path: "{{ HBASE_HOME }}/.ssh/known_hosts"
+        state: absent
+
+    - name: Update known_hosts file
+      when: ansible_host == HBASE_MASTER
+      become_user: hbase
+      ansible.builtin.shell: "ssh-keyscan {{ hostvars[item]['ansible_host'] }} >>{{ HBASE_HOME }}/.ssh/known_hosts"
+      loop: "{{ groups['hadoop'] }}"
+
+    - name: Copy safemode script
+      copy:
+        src: "{{ app_dir }}/config_files/scripts/wait-for-safemode.sh"
+        dest: "{{ HBASE_HOME }}/bin/wait-for-safemode.sh"
+        owner: hbase
+        group: hbase
+        mode: '0755'
+
+    - name: Copy stop-all script
+      copy:
+        src: "{{ app_dir }}/config_files/scripts/stop-all.sh"
+        dest: "{{ HBASE_HOME }}/bin/stop-all.sh"
+        owner: hbase
+        group: hbase
+        mode: '0755'
+
+    - name: Copy configuration hbase-env.sh
+      template:
+        src: "{{ app_dir }}/config_files/hbase-env.sh.j2"
+        dest: "{{ HBASE_HOME }}/conf/hbase-env.sh"
+        owner: hbase
+        group: hbase
+        mode: '0644'
+
+    - name: Copy configuration hbase-site.xml
+      template:
+        src: "{{ app_dir }}/config_files/hbase-site.xml.j2"
+        dest: "{{ HBASE_HOME }}/conf/hbase-site.xml"
+        owner: hbase
+        group: hbase
+        mode: '0644'
+
+    - name: Copy configuration regionservers
+      template:
+        src: "{{ app_dir }}/config_files/regionservers.j2"
+        dest: "{{ HBASE_HOME }}/conf/regionservers"
+        owner: hbase
+        group: hbase
+        mode: '0644'
+
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ HBASE_PORTS }}"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy hbase service file
+      when: ansible_host == HBASE_MASTER
+      run_once: true
+      template:
+        src: "{{ app_dir }}/config_files/hbase.service.j2"
+        dest: /usr/lib/systemd/system/hbase.service
+
+    - name: Reload deamon
+      when: ansible_host == HBASE_MASTER
+      run_once: true
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart hbase.service
+      when: ansible_host == HBASE_MASTER
+      run_once: true
+      systemd:
+        name: hbase
+        state: restarted
+        enabled: yes

@@ -1,0 +1,108 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Kafka Common Installation
+  hosts: kafka_common
+  vars:
+    app_dir: "{{ inventory_dir }}/common"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+  environment:
+    JAVA_HOME: /usr/lib/jvm/jre-11-openjdk
+  tasks:
+    - name: Install Java 11
+      dnf:
+        name: java-11-openjdk-devel
+        state: latest
+
+    - name: Install Maven
+      dnf:
+        name: maven
+        state: latest
+
+    - name: Install Git
+      dnf:
+        name: git
+        state: latest
+
+    - name: Ensure group 'kafka-common' is present
+      group:
+        name: kafka-common
+        state: present
+
+    - name: Create user 'kafka-common'
+      user:
+        name: kafka-common
+        groups: kafka-common
+        shell: /sbin/nologin
+        append: yes
+        create_home: false
+        home: /opt/kafka-common
+
+    - name: Download Common
+      get_url:
+        url: https://github.com/confluentinc/common/archive/v6.0.0.tar.gz
+        dest: /opt/common-6.0.0.tar.gz
+
+    - name: Unarchive Common
+      unarchive:
+        remote_src: yes
+        src: /opt/common-6.0.0.tar.gz
+        dest: /opt
+        owner: kafka-common
+        group: kafka-common
+        keep_newer: yes
+
+    - name: Create a symlink to common
+      file:
+        src: /opt/common-6.0.0
+        dest: /opt/common
+        owner: kafka-common
+        group: kafka-common
+        state: link
+
+    - name: Compile Common with Maven
+      command: mvn install -Dmaven.test.skip=true
+      become: yes
+      args:
+        chdir: /opt/common
+
+    - name: Download Rest Utils
+      get_url:
+        url: https://github.com/confluentinc/rest-utils/archive/v6.0.0.tar.gz
+        dest: /opt/rest-utils-6.0.0.tar.gz
+
+    - name: Unarchive Rest Utils
+      unarchive:
+        remote_src: yes
+        src: /opt/rest-utils-6.0.0.tar.gz
+        dest: /opt
+        owner: kafka-common
+        group: kafka-common
+        keep_newer: yes
+
+    - name: Create symlink to Rest Utils
+      file:
+        src: /opt/rest-utils-6.0.0
+        dest: /opt/rest-utils
+        owner: kafka-common
+        group: kafka-common
+        state: link
+
+    - name: Compile Rest Utils with Maven
+      command: mvn install -Dmaven.test.skip=true
+      become: yes
+      args:
+        chdir: /opt/rest-utils

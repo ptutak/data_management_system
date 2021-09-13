@@ -1,0 +1,112 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Schema Registry config update
+  hosts: schemaregistry
+  vars:
+    app_dir: "{{ inventory_dir }}/schema-registry"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/schema-registry.yml"
+  tasks:
+    - name: Copy configuration file for SchemaRegistry
+      template:
+        src: "{{ app_dir }}/config_files/schema-registry.properties.j2"
+        dest: /opt/schema-registry/config/schema-registry.properties
+        owner: schema-registry
+        group: schema-registry
+        mode: '0644'
+
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 8081/tcp
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy service file for SchemaRegistry
+      template:
+        src: "{{ app_dir }}/config_files/schema-registry.service.j2"
+        dest: /usr/lib/systemd/system/schema-registry.service
+
+    - name: Reload deamon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart schema-registry.service
+      systemd:
+        name: schema-registry
+        state: stopped
+        enabled: false
+
+
+- name: Kafka REST Update
+  hosts: schemaregistry
+  vars:
+    app_dir: "{{ inventory_dir }}/schema-registry"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/kafka-rest.yml"
+  tasks:
+    - name: Copy config properties file
+      template:
+        src: "{{ app_dir }}/config_files/kafka-rest.properties.j2"
+        dest: "{{ KAFKA_REST_HOME }}/config/kafka-rest.properties"
+        owner: kafka-rest
+        group: kafka-rest
+        mode: '0644'
+
+    - name: Copy config startup file
+      template:
+        src: "{{ app_dir }}/config_files/kafka-rest-start.j2"
+        dest: "{{ KAFKA_REST_HOME }}/bin/kafka-rest-start"
+        owner: kafka-rest
+        group: kafka-rest
+        mode: '0755'
+
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - "{{ KAFKA_REST_PORT }}/tcp"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy service file for Kafka-REST
+      template:
+        src: "{{ app_dir }}/config_files/kafka-rest.service.j2"
+        dest: /usr/lib/systemd/system/kafka-rest.service
+
+    - name: Reload deamon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable kafka-rest.service
+      systemd:
+        name: kafka-rest
+        state: restarted
+        enabled: yes

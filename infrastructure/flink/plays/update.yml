@@ -1,0 +1,146 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Flink Update
+  hosts: flink
+  vars:
+    app_dir: "{{ inventory_dir }}/flink"
+    JAVA_HOME: /usr/lib/jvm/jre-11-openjdk
+    FLINK_HOME: /opt/flink
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/flink.yml"
+  tasks:
+    - name: Copy safemode script
+      copy:
+        src: "{{ app_dir }}/config_files/scripts/wait-for-safemode.sh"
+        dest: "{{ HADOOP_HOME }}/sbin/wait-for-safemode.sh"
+        owner: flink
+        group: flink
+        mode: '0755'
+
+    - name: Copy libraries
+      copy:
+        src: "{{ item }}"
+        dest: "{{ FLINK_HOME }}/lib/"
+        owner: flink
+        group: flink
+        mode: '0644'
+      loop: "{{ lookup('fileglob', app_dir + '/libraries/*', wantlist=True) }}"
+
+    - name: Delete known_hosts file
+      when: ansible_host == FLINK_MASTER
+      file:
+        path: "{{ FLINK_HOME }}/.ssh/known_hosts"
+        state: absent
+
+    - name: Update known_hosts file
+      when: ansible_host == FLINK_MASTER
+      become_user: flink
+      ansible.builtin.shell: "ssh-keyscan {{ hostvars[item]['ansible_host'] }} >>{{ FLINK_HOME }}/.ssh/known_hosts"
+      loop: "{{ groups['flink'] }}"
+
+    - name: Copy configuration file
+      template:
+        src: "{{ app_dir }}/config_files/flink-conf.yaml.j2"
+        dest: "{{ FLINK_HOME }}/conf/flink-conf.yaml"
+        owner: flink
+        group: flink
+        mode: '0644'
+
+    - name: Copy masters file
+      template:
+        src: "{{ app_dir }}/config_files/masters.j2"
+        dest: "{{ FLINK_HOME }}/conf/masters"
+        owner: flink
+        group: flink
+        mode: '0644'
+
+    - name: Copy workers file
+      template:
+        src: "{{ app_dir }}/config_files/workers.j2"
+        dest: "{{ FLINK_HOME }}/conf/workers"
+        owner: flink
+        group: flink
+        mode: '0644'
+
+    - name: Copy flink_env.sh file
+      template:
+        src: "{{ app_dir }}/config_files/flink_env.sh.j2"
+        dest: "{{ FLINK_HOME }}/conf/flink_env.sh"
+        owner: flink
+        group: flink
+        mode: '0644'
+
+    - name: Copy config.sh file
+      copy:
+        src: "{{ app_dir }}/config_files/config.sh"
+        dest: "{{ FLINK_HOME }}/bin/config.sh"
+        owner: flink
+        group: flink
+        mode: '0755'
+
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ FLINK_PORTS }}"
+
+    - name: Allow flink master ports
+      when: ansible_host == FLINK_MASTER
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ FLINK_MASTER_PORTS }}"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy service file for Flink Master
+      when: ansible_host == FLINK_MASTER
+      template:
+        src: "{{ app_dir }}/config_files/flink-master.service.j2"
+        dest: /usr/lib/systemd/system/flink-master.service
+
+    - name: Copy service file for Flink Historyserver
+      when: ansible_host == FLINK_MASTER
+      template:
+        src: "{{ app_dir }}/config_files/flink-historyserver.service.j2"
+        dest: /usr/lib/systemd/system/flink-historyserver.service
+
+    - name: Reload deamon
+      when: ansible_host == FLINK_MASTER
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart flink-master.service
+      when: ansible_host == FLINK_MASTER
+      systemd:
+        name: flink-master
+        state: restarted
+        enabled: yes
+
+    - name: Restart flink-historyserver.service
+      when: ansible_host == FLINK_MASTER
+      systemd:
+        name: flink-historyserver
+        state: restarted
+        enabled: yes

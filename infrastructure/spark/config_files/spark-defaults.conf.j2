@@ -1,0 +1,57 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Default system properties included when running spark-submit.
+# This is useful for setting default environmental settings.
+
+# Example:
+# spark.master                     spark://master:7077
+# spark.eventLog.enabled           true
+# spark.eventLog.dir               hdfs://namenode:8021/directory
+# spark.serializer                 org.apache.spark.serializer.KryoSerializer
+# spark.driver.memory              5g
+# spark.executor.extraJavaOptions  -XX:+PrintGCDetails -Dkey=value -Dnumbers="one two three"
+
+spark.master                        yarn
+spark.eventLog.enabled              true
+spark.eventLog.dir                  {{ HADOOP_DFS_ADDRESS }}{{ SPARK_HDFS_HOME }}/event-log
+
+spark.history.provider              org.apache.spark.deploy.history.FsHistoryProvider
+spark.history.fs.logDirectory       {{ HADOOP_DFS_ADDRESS }}{{ SPARK_HDFS_HOME }}/event-log
+spark.history.fs.update.interval    10s
+spark.history.ui.port               18080
+
+spark.driver.host                   {{ SPARK_MASTER }}
+spark.driver.port                   {{ SPARK_DRIVER_PORT }}
+spark.driver.memory                 768m
+spark.driver.extraClassPath         {{ SPARK_HOME }}/extra_jars/*:{{ PHOENIX_CLIENT_JAR }}:{{ PHOENIX_CONNECTOR_JAR }}
+
+spark.executor.memory               768m
+spark.executor.instances            5
+spark.executor.extraClassPath       {{ SPARK_HOME }}/extra_jars/*:{{ PHOENIX_CLIENT_JAR }}:{{ PHOENIX_CONNECTOR_JAR }}
+
+spark.yarn.am.memory                768m
+spark.yarn.jars                     {{ HADOOP_DFS_ADDRESS }}{{ SPARK_YARN_JARS }}/*,{{ HADOOP_DFS_ADDRESS }}{{ SPARK_YARN_EXTRA_JARS }}/*,{{ HADOOP_DFS_ADDRESS }}{{ SPARK_YARN_PHOENIX_JARS }}/*
+
+spark.pyspark.driver.python         /usr/bin/python3
+spark.pyspark.python                /usr/bin/python3
+
+spark.worker.cleanup.enabled        true
+spark.cores.max                     2
+spark.blockManager.port             {{ SPARK_BLOCK_MANAGER_PORT }}
+spark.port.maxRetries               {{ SPARK_PORT_MAX_RETRIES }}
+spark.sql.warehouse.dir             {{ HADOOP_DFS_ADDRESS }}{{ SPARK_SQL_WAREHOUSE_DIR }}

@@ -1,0 +1,45 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Required keys
+
+spark.jobs.dir: /home/ptutak/GitHub/av_decision_support_system/infrastructure/support_orchestrator/source/jobs/spark
+spark.home: /opt/spark
+
+flink.jobs.dir: /home/ptutak/GitHub/av_decision_support_system/infrastructure/support_orchestrator/source/jobs/flink
+flink.jobmanager.addresses:
+  - 192.168.2.121:8081
+  - 192.168.2.121:8082
+
+deployments.jobs.dir: /home/ptutak/GitHub/av_decision_support_system/infrastructure/support_orchestrator/source/deployments
+
+hbase.master.address: 192.168.2.201:16000
+hbase.queryserver.addresses:
+  - 192.168.2.201:8765
+
+kafka.rest.addresses:
+  - 192.168.2.101:8481
+  - 192.168.2.102:8481
+  - 192.168.2.103:8481
+  - 192.168.2.104:8481
+
+hdfs.namenode.master: 192.168.2.201
+hdfs.rpc.port: 9000
+hdfs.http.port: 9870
+hdfs.schema.dir: /datasets-schema
+hdfs.dataset.dir: /datasets
+
+log.dir: /tmp/support_orchestrator/logs
+
+host.id: 192.168.2.201

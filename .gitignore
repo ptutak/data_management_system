@@ -1,0 +1,17 @@
+__pycache__
+
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+.history
+.cache
+.lib/
+
+credentials
+
+.bsp
+.pytest_cache
+.mypy_cache

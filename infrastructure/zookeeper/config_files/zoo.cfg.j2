@@ -1,0 +1,26 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+tickTime=2000
+initLimit=10
+syncLimit=5
+dataDir={{ ZOOKEEPER_DATA_DIR }}
+clientPort=2181
+{% for host_id in range(1,4) %}
+{% if host_id == myid %}
+server.{{ host_id }}=0.0.0.0:2888:3888
+{% else %}
+server.{{ host_id }}=192.168.2.1{{ host_id }}:2888:3888
+{% endif %}
+{% endfor %}

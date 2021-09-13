@@ -1,0 +1,112 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Phoenix Installation
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/phoenix"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/phoenix.yml"
+  tasks:
+    - name: Download Phoenix
+      get_url:
+        url: "{{ PHOENIX_DOWNLOAD_URL }}"
+        dest: "{{ PHOENIX_DOWNLOAD_DESTINATION }}"
+
+    - name: Unarchive Phoenix archive
+      unarchive:
+        remote_src: yes
+        src: "{{ PHOENIX_DOWNLOAD_DESTINATION }}"
+        dest: "{{ EXTRACT_DIR }}"
+        creates: "{{ PHOENIX_HOME }}"
+
+
+- name: Phoenix Query Server Installation
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/phoenix"
+    JAVA_HOME: "{{ JAVA_8_HOME }}"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/phoenix.yml"
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+  tasks:
+
+    - name: Ensure group 'hbase' is present
+      group:
+        name: hbase
+        state: present
+
+    - name: Create user 'hbase'
+      user:
+        name: hbase
+        groups: hbase
+        shell: /bin/bash
+        append: yes
+        create_home: false
+        home: "{{ HBASE_HOME }}"
+
+    - name: Install Java 8
+      dnf:
+        name: java-1.8.0-openjdk-devel
+        state: latest
+
+    - name: Install Python2
+      dnf:
+        name: python2
+        state: latest
+
+    - name: Install required packages
+      ansible.builtin.pip:
+        executable: pip2
+        state: latest
+        name: "{{ item }}"
+      loop:
+        - pip
+        - wheel
+        - virtualenv
+
+    - name: Download Phoenix QueryServer
+      get_url:
+        url: "{{ PHOENIX_QUERYSERVER_DOWNLOAD_URL }}"
+        dest: "{{ PHOENIX_QUERYSERVER_DOWNLOAD_DESTINATION }}"
+
+    - name: Unarchive Phoenix QueryServer archive
+      unarchive:
+        remote_src: yes
+        src: "{{ PHOENIX_QUERYSERVER_DOWNLOAD_DESTINATION }}"
+        dest: "{{ EXTRACT_DIR }}"
+        owner: hbase
+        group: hbase
+        keep_newer: yes
+
+    - name: Create a symlink to
+      file:
+        src: "{{ PHOENIX_QUERYSERVER_LINK }}"
+        dest: "{{ PHOENIX_QUERYSERVER_HOME }}"
+        owner: hbase
+        group: hbase
+        state: link
+
+    - name: Recursively change permissions
+      file:
+        path: "{{ PHOENIX_QUERYSERVER_HOME }}"
+        state: directory
+        recurse: yes
+        owner: hbase
+        group: hbase

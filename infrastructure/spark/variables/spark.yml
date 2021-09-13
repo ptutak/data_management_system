@@ -1,0 +1,61 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+SPARK_DRIVER_PORT: 12101
+SPARK_BLOCK_MANAGER_PORT: 13001
+SPARK_PORT_MAX_RETRIES: 4
+
+SPARK_DRIVER_PORTS:
+
+SPARK_PORTS:
+  - 8081/tcp
+  - 12001/tcp
+  - 12002/tcp
+  - 12003/tcp
+  - 12004/tcp
+  - 12005/tcp
+  - "{{ SPARK_BLOCK_MANAGER_PORT }}/tcp"
+  - "{{ SPARK_BLOCK_MANAGER_PORT + 1 }}/tcp"
+  - "{{ SPARK_BLOCK_MANAGER_PORT + 2 }}/tcp"
+  - "{{ SPARK_BLOCK_MANAGER_PORT + 3 }}/tcp"
+  - "{{ SPARK_BLOCK_MANAGER_PORT + 4 }}/tcp"
+
+SPARK_MASTER_PORTS:
+  - 4040/tcp
+  - 6066/tcp
+  - 7077/tcp
+  - 8080/tcp
+  - 18080/tcp
+  - "{{ SPARK_DRIVER_PORT }}/tcp"
+  - "{{ SPARK_DRIVER_PORT + 1 }}/tcp"
+  - "{{ SPARK_DRIVER_PORT + 2 }}/tcp"
+  - "{{ SPARK_DRIVER_PORT + 3 }}/tcp"
+  - "{{ SPARK_DRIVER_PORT + 4 }}/tcp"
+
+SPARK_VERSION: 2.4.8
+SPARK_LONG_VERSION: "spark-{{ SPARK_VERSION }}-bin-hadoop2.7"
+SPARK_DOWNLOAD_URL: "https://downloads.apache.org/spark/spark-{{ SPARK_VERSION }}/{{ SPARK_LONG_VERSION }}.tgz"
+
+SPARK_DOWNLOAD_DESTINATION: "{{ EXTRACT_DIR }}/{{ SPARK_LONG_VERSION }}.tgz"
+SPARK_LINK_DIR: "{{ EXTRACT_DIR }}/{{ SPARK_LONG_VERSION }}"
+
+SPARK_HDFS_HOME: "/user/spark/{{ SPARK_LONG_VERSION }}"
+SPARK_YARN_JARS: "{{ SPARK_HDFS_HOME }}/jars"
+SPARK_YARN_EXTRA_JARS: "{{ SPARK_HDFS_HOME }}/extra_jars"
+SPARK_YARN_PHOENIX_JARS: "{{ SPARK_HDFS_HOME }}/phoenix_jars"
+SPARK_SQL_WAREHOUSE_DIR: "{{ SPARK_HDFS_HOME }}/warehouse"
+
+PHOENIX_CLIENT_JAR: "{{ PHOENIX_HOME }}/phoenix-client-{{ PHOENIX_HBASE_VERSION }}.jar"
+PHOENIX_CONNECTOR_URL: "https://repository.cloudera.com/artifactory/cloudera-repos/org/apache/phoenix/phoenix5-spark/6.0.0.7.2.9.0-203/phoenix5-spark-6.0.0.7.2.9.0-203-shaded.jar"
+PHOENIX_CONNECTOR_JAR: "{{ PHOENIX_HOME }}/phoenix5-spark-6.0.0.7.2.9.0-203-shaded.jar"

@@ -1,0 +1,71 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Zookeeper Update
+  hosts: zookeeper
+  vars:
+    app_dir: "{{ inventory_dir }}/zookeeper"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/zookeeper.yml"
+  tasks:
+    - name: Allow firewall ports
+      ansible.posix.ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 2888/tcp
+        - 2888/udp
+        - 3888/tcp
+        - 3888/udp
+        - 2181/tcp
+        - 2181/udp
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy configuration file
+      template:
+        src: "{{ app_dir }}/config_files/zoo.cfg.j2"
+        dest: /opt/zookeeper/conf/zoo.cfg
+        owner: zookeeper
+        group: zookeeper
+        mode: '0644'
+
+    - name: Copy 'myid' file
+      template:
+        src: "{{ app_dir }}/config_files/myid.j2"
+        dest: /opt/zookeeper/data/myid
+        owner: zookeeper
+        group: zookeeper
+        mode: '0644'
+
+    - name: Copy service file
+      copy:
+        src: "{{ app_dir }}/config_files/zookeeper.service"
+        dest: /usr/lib/systemd/system/zookeeper.service
+
+    - name: Reload deamon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart zookeeper.service
+      systemd:
+        name: zookeeper
+        state: restarted
+        enabled: yes

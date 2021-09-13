@@ -1,0 +1,104 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: HBase Installation
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/hbase"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/hbase.yml"
+  tasks:
+    - name: Install Java 8
+      dnf:
+        name: java-1.8.0-openjdk-devel
+        state: latest
+
+    - name: Ensure group 'hbase' is present
+      group:
+        name: hbase
+        state: present
+
+    - name: Create user 'hbase'
+      user:
+        name: hbase
+        groups: hbase
+        shell: /bin/bash
+        append: yes
+        create_home: false
+        home: "{{ HBASE_HOME }}"
+
+    - name: Download HBase
+      get_url:
+        url: "{{ HBASE_DOWNLOAD_URL }}"
+        dest: "{{ HBASE_DOWNLOAD_DESTINATION }}"
+
+    - name: Phoenix Spark Hbase
+      get_url:
+        url: "{{ PHOENIX_SPARK_URL }}"
+        dest: "{{ PHOENIX_SPARK_JAR }}"
+
+    - name: Unarchive HBase archive
+      unarchive:
+        remote_src: yes
+        src: "{{ HBASE_DOWNLOAD_DESTINATION }}"
+        dest: "{{ EXTRACT_DIR }}"
+        owner: hbase
+        group: hbase
+        keep_newer: yes
+
+    - name: Create a symlink to
+      file:
+        src: "{{ HBASE_LINK_DIR }}"
+        dest: "{{ HBASE_HOME }}"
+        owner: hbase
+        group: hbase
+        state: link
+
+    - name: Create .ssh directory
+      file:
+        path: "{{ HBASE_HOME }}/.ssh"
+        state: directory
+        mode: '0755'
+
+    - name: Set authorized key
+      authorized_key:
+        user: hbase
+        state: present
+        key: "{{ lookup('file', app_dir + '/credentials/hbase.pub') }}"
+
+    - name: Set private key
+      copy:
+        src: "{{ app_dir }}/credentials/hbase"
+        dest: "{{ HBASE_HOME }}/.ssh/id_rsa"
+        owner: hbase
+        group: hbase
+        mode: '0600'
+
+    - name: Set public key
+      copy:
+        src: "{{ app_dir }}/credentials/hbase.pub"
+        dest: "{{ HBASE_HOME }}/.ssh/id_rsa.pub"
+        owner: hbase
+        group: hbase
+        mode: '0644'
+
+    - name: Recursively change permissions
+      file:
+        path: "{{ HBASE_HOME }}"
+        state: directory
+        recurse: yes
+        owner: hbase
+        group: hbase

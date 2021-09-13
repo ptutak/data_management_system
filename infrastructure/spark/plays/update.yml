@@ -1,0 +1,156 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Spark Update
+  hosts: spark
+  vars:
+    JAVA_HOME: "{{ JAVA_8_HOME }}"
+    app_dir: "{{ inventory_dir }}/spark"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/spark.yml"
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+    SPARK_HOME: "{{ SPARK_HOME }}"
+    SPARK_YARN_JARS: "{{ SPARK_YARN_JARS }}"
+    SPARK_YARN_PHOENIX_JARS: "{{ SPARK_YARN_PHOENIX_JARS }}"
+    SPARK_YARN_EXTRA_JARS: "{{ SPARK_YARN_EXTRA_JARS }}"
+    HADOOP_HOME: "{{ HADOOP_HOME }}"
+    PHOENIX_CONNECTOR_JAR: "{{ PHOENIX_CONNECTOR_JAR }}"
+  tasks:
+    - name: Copy requirements.txt
+      ansible.builtin.template:
+        src: "{{ app_dir }}/config_files/requirements.txt.j2"
+        dest: "{{ SPARK_HOME }}/pyspark/requirements.txt"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Remove Extra Jars
+      ansible.builtin.file:
+        path: "{{ SPARK_HOME }}/extra_jars"
+        state: absent
+
+    - name: Copy libraries
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ SPARK_HOME }}/extra_jars/"
+        owner: spark
+        group: spark
+        mode: '0644'
+      loop: "{{ lookup('fileglob', app_dir + '/lib/*.jar', wantlist=True) }}"
+
+    - name: Update Spark file system
+      when: ansible_host == SPARK_MASTER
+      become_user: spark
+      run_once: true
+      script:
+        cmd: "{{ app_dir }}/config_files/scripts/update.sh"
+
+    - name: Install Modules
+      ansible.builtin.pip:
+        executable: /usr/local/bin/pip3
+        requirements: "{{ SPARK_HOME }}/pyspark/requirements.txt"
+
+    - name: Copy spark-env file for Spark
+      template:
+        src: "{{ app_dir }}/config_files/spark-env.sh.j2"
+        dest: "{{ SPARK_HOME }}/conf/spark-env.sh"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Copy hive-site.xml file for Spark
+      template:
+        src: "{{ app_dir }}/config_files/hive-site.xml.j2"
+        dest: "{{ SPARK_HOME }}/conf/hive-site.xml"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Copy log4j.properties file for Spark
+      template:
+        src: "{{ app_dir }}/config_files/log4j.properties.j2"
+        dest: "{{ SPARK_HOME }}/conf/log4j.properties"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Copy spark-defaults file for Spark
+      template:
+        src: "{{ app_dir }}/config_files/spark-defaults.conf.j2"
+        dest: "{{ SPARK_HOME }}/conf/spark-defaults.conf"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Copy slaves file for Spark
+      template:
+        src: "{{ app_dir }}/config_files/slaves.j2"
+        dest: "{{ SPARK_HOME }}/conf/slaves"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Allow firewall ports for all
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ SPARK_PORTS }}"
+
+    - name: Allow firewall ports for master spark
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      when: ansible_host == SPARK_MASTER
+      loop: "{{ SPARK_MASTER_PORTS }}"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy Spark master service file
+      when: ansible_host == SPARK_MASTER
+      template:
+        src: "{{ app_dir }}/config_files/spark-master.service.j2"
+        dest: /usr/lib/systemd/system/spark-master.service
+
+    - name: Copy Spark history server service file
+      when: ansible_host == SPARK_MASTER
+      template:
+        src: "{{ app_dir }}/config_files/spark-history-server.service.j2"
+        dest: /usr/lib/systemd/system/spark-history-server.service
+
+    - name: Reload deamon
+      when: ansible_host == SPARK_MASTER
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable spark-master.service
+      when: ansible_host == SPARK_MASTER
+      systemd:
+        name: spark-master
+        enabled: no
+        state: stopped
+
+    - name: Enable spark-history-server.service
+      when: ansible_host == SPARK_MASTER
+      systemd:
+        name: spark-history-server
+        enabled: yes
+        state: restarted

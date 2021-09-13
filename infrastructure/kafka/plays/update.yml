@@ -1,0 +1,73 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Kafka Update
+  hosts: kafka
+  vars:
+    app_dir: "{{ inventory_dir }}/kafka"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/kafka.yml"
+  tasks:
+    - name: Copy configuration file
+      template:
+        src: "{{ app_dir }}/config_files/server.properties.j2"
+        dest: "{{ KAFKA_HOME }}/config/server.properties"
+        owner: kafka
+        group: kafka
+        mode: '0644'
+
+    - name: Allow firewall ports
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 9092/tcp
+        - 9000/tcp
+        - 9999/tcp
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy service file for Kafka
+      template:
+        src: "{{ app_dir }}/config_files/kafka.service.j2"
+        dest: /usr/lib/systemd/system/kafka.service
+
+    - name: Copy service file for CMAK
+      when: myid == 1
+      template:
+        src: "{{ app_dir }}/config_files/cmak.service.j2"
+        dest: /usr/lib/systemd/system/cmak.service
+
+    - name: Reload deamon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart kafka.service
+      systemd:
+        name: kafka
+        state: restarted
+        enabled: yes
+
+    - name: Restart cmak service
+      when: ansible_host == CMAK_HOST
+      systemd:
+        name: cmak
+        state: restarted
+        enabled: yes

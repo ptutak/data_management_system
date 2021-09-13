@@ -1,0 +1,62 @@
+' Copyright 2021 Piotr Tutak
+
+' Licensed under the Apache License, Version 2.0 (the "License");
+' you may not use this file except in compliance with the License.
+' You may obtain a copy of the License at
+
+'     http://www.apache.org/licenses/LICENSE-2.0
+
+' Unless required by applicable law or agreed to in writing, software
+' distributed under the License is distributed on an "AS IS" BASIS,
+' WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+' See the License for the specific language governing permissions and
+' limitations under the License.
+
+@startuml SystemComponentDiagram
+
+
+package "AV Support Orchestrator" {
+    component av_support_orchestrator
+    interface "REST API\nAV Support Orchestrator" as i_av_orchestrator_rest
+    i_av_orchestrator_rest -- av_support_orchestrator
+}
+
+node "Stream Processing" {
+    package "Kafka Messaging" {
+        interface "REST API\nKafka" as i_kafka_rest
+        component "Kafka Cluster" as kafka_cluster
+        i_kafka_rest -- kafka_cluster
+    }
+
+    package "Flink Streaming" {
+        component "Flink Cluster" as flink_cluster
+    }
+}
+
+node "Batch Processing"{
+    together {
+        package "Spark Batch Processing" {
+            component "Spark Cluster" as spark_cluster
+        }
+
+        database "HBase" {
+            component "HBase" as hbase
+        }
+    }
+
+    database "Hadoop" {
+        component "HDFS" as hdfs
+    }
+
+}
+
+av_support_orchestrator --> hbase
+av_support_orchestrator --> flink_cluster
+av_support_orchestrator --> spark_cluster
+flink_cluster --> kafka_cluster
+flink_cluster --> hdfs
+spark_cluster --> hdfs
+spark_cluster --> hbase
+spark_cluster --> kafka_cluster
+
+@enduml

@@ -1,0 +1,99 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Hadoop Installation
+  hosts: hadoop
+  vars:
+    app_dir: "{{ inventory_dir }}/hadoop"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/hadoop.yml"
+  tasks:
+    - name: Install Java 8
+      dnf:
+        name: java-1.8.0-openjdk-devel
+        state: latest
+
+    - name: Ensure group 'hadoop' is present
+      group:
+        name: hadoop
+        state: present
+
+    - name: Create user 'hadoop'
+      user:
+        name: hadoop
+        groups: hadoop
+        shell: /bin/bash
+        append: yes
+        create_home: false
+        home: "{{ HADOOP_HOME }}"
+
+    - name: Download 'Hadoop'
+      get_url:
+        url: http://ftp.man.poznan.pl/apache/hadoop/common/hadoop-3.3.0/hadoop-3.3.0.tar.gz
+        dest: /opt/hadoop-3.3.0.tar.gz
+
+    - name: Unarchive hadoop archive
+      unarchive:
+        remote_src: yes
+        src: /opt/hadoop-3.3.0.tar.gz
+        dest: /opt
+        owner: hadoop
+        group: hadoop
+        keep_newer: yes
+
+    - name: Create a symlink to
+      file:
+        src: /opt/hadoop-3.3.0
+        dest: "{{ HADOOP_HOME }}"
+        owner: hadoop
+        group: hadoop
+        state: link
+
+    - name: Create .ssh directory
+      file:
+        path: "{{ HADOOP_HOME }}/.ssh"
+        state: directory
+        mode: '0755'
+
+    - name: Set authorized key
+      authorized_key:
+        user: hadoop
+        state: present
+        key: "{{ lookup('file', app_dir + '/credentials/hadoop.pub') }}"
+
+    - name: Set private key
+      copy:
+        src: "{{ app_dir }}/credentials/hadoop"
+        dest: "{{ HADOOP_HOME }}/.ssh/id_rsa"
+        owner: hadoop
+        group: hadoop
+        mode: '0600'
+
+    - name: Set public key
+      copy:
+        src: "{{ app_dir }}/credentials/hadoop.pub"
+        dest: "{{ HADOOP_HOME }}/.ssh/id_rsa.pub"
+        owner: hadoop
+        group: hadoop
+        mode: '0644'
+
+    - name: Recursively change permissions
+      file:
+        path: "{{ HADOOP_HOME }}"
+        state: directory
+        recurse: yes
+        owner: hadoop
+        group: hadoop

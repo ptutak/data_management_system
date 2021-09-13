@@ -1,0 +1,76 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Av Support Orchestrator Update
+  hosts: support_orchestrator
+  vars:
+    app_dir: "{{ inventory_dir }}/support_orchestrator"
+    source_app_dir: "{{ inventory_dir }}/../support_orchestrator"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/support_orchestrator.yml"
+  environment:
+    SUPPORT_HOME: "{{ SUPPORT_HOME }}"
+  tasks:
+    - name: Copy orchestrator-env.sh
+      ansible.builtin.template:
+        src: "{{ app_dir }}/config_files/orchestrator-env.sh.j2"
+        dest: "{{ SUPPORT_HOME }}/conf/orchestrator-env.sh"
+        owner: support_orchestrator
+        group: support_orchestrator
+        mode: '0644'
+
+    - name: Copy orchestrator-conf.yaml
+      ansible.builtin.template:
+        src: "{{ app_dir }}/config_files/orchestrator-conf.yaml.j2"
+        dest: "{{ SUPPORT_HOME }}/conf/orchestrator-conf.yaml"
+        owner: support_orchestrator
+        group: support_orchestrator
+        mode: '0644'
+
+    - name: Recursively change permissions
+      file:
+        path: "{{ SUPPORT_HOME }}"
+        state: directory
+        recurse: yes
+        owner: support_orchestrator
+        group: support_orchestrator
+
+    - name: Allow firewall ports for support orchestrator
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop: "{{ SUPPORT_PORTS }}"
+
+    - name: Restart firewall
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Copy Support Orchestrator service file
+      template:
+        src: "{{ app_dir }}/config_files/orchestrator.service.j2"
+        dest: /usr/lib/systemd/system/orchestrator.service
+
+    - name: Reload deamon
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart orchestrator.service
+      systemd:
+        name: orchestrator
+        enabled: yes
+        state: restarted

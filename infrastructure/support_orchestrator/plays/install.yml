@@ -1,0 +1,89 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Av Support Orchestrator Installation
+  hosts: support_orchestrator
+  vars:
+    app_dir: "{{ inventory_dir }}/support_orchestrator"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/support_orchestrator.yml"
+  environment:
+    SUPPORT_HOME: "{{ SUPPORT_HOME }}"
+  tasks:
+    - name: Install Python3
+      dnf:
+        name: python3
+        state: latest
+
+    - name: Install required packages
+      ansible.builtin.pip:
+        executable: /usr/local/bin/pip3
+        state: latest
+        name: "{{ item }}"
+      loop:
+        - pip
+        - wheel
+        - virtualenv
+
+    - name: Ensure group 'support_orchestrator' is present
+      group:
+        name: support_orchestrator
+        state: present
+
+    - name: Create user 'support_orchestrator'
+      user:
+        name: support_orchestrator
+        groups: support_orchestrator
+        shell: /bin/bash
+        append: yes
+        create_home: false
+        home: "{{ SUPPORT_HOME }}"
+
+    - name: Copy Av Support Orchestrator
+      ansible.builtin.copy:
+        src: "{{ app_dir }}/source/"
+        dest: "{{ SUPPORT_HOME }}"
+        owner: support_orchestrator
+        group: support_orchestrator
+        mode: preserve
+
+    - name: Purge venv
+      ansible.builtin.file:
+        path: "{{ SUPPORT_HOME }}/venv"
+        state: absent
+
+    - name: Install Modules
+      become_user: support_orchestrator
+      ansible.builtin.pip:
+        requirements: "{{ SUPPORT_HOME }}/requirements.txt"
+        virtualenv: "{{ SUPPORT_HOME }}/venv"
+        virtualenv_python: "python3"
+        virtualenv_command: /usr/local/bin/virtualenv
+
+    - name: Recursively change permissions
+      file:
+        path: "{{ SUPPORT_HOME }}"
+        state: directory
+        recurse: yes
+        owner: support_orchestrator
+        group: support_orchestrator
+
+    - name: Update Av Support Script
+      become_user: support_orchestrator
+      run_once: true
+      script:
+        chdir: "{{ SUPPORT_HOME }}"
+        cmd: "{{ app_dir }}/config_files/scripts/update.sh"

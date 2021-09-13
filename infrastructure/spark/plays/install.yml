@@ -1,0 +1,141 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Spark Installation
+  hosts: spark
+  vars:
+    app_dir: "{{ inventory_dir }}/spark"
+    JAVA_HOME: "{{ JAVA_8_HOME }}"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/spark.yml"
+  environment:
+    JAVA_HOME: "{{ JAVA_HOME }}"
+    SPARK_HOME: "{{ SPARK_HOME }}"
+    SPARK_HDFS_HOME: "{{ SPARK_HDFS_HOME }}"
+    SPARK_YARN_JARS: "{{ SPARK_YARN_JARS }}"
+    SPARK_YARN_PHOENIX_JARS: "{{ SPARK_YARN_PHOENIX_JARS }}"
+    SPARK_YARN_EXTRA_JARS: "{{ SPARK_YARN_EXTRA_JARS }}"
+    HADOOP_HOME: "{{ HADOOP_HOME }}"
+    PHOENIX_HOME: "{{ PHOENIX_HOME }}"
+    PHOENIX_CLIENT_JAR: "{{ PHOENIX_CLIENT_JAR }}"
+    PHOENIX_CONNECTOR_JAR: "{{ PHOENIX_CONNECTOR_JAR }}"
+  tasks:
+    - name: Install Packages
+      dnf:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - java-11-openjdk-devel
+        - scala
+        - python3
+        - python3-devel
+        - gcc
+        - krb5-devel
+
+    - name: Install required packages
+      ansible.builtin.pip:
+        executable: /usr/local/bin/pip3
+        state: latest
+        name: "{{ item }}"
+      loop:
+        - pip
+        - wheel
+
+    - name: Ensure group 'spark' is present
+      group:
+        name: spark
+        state: present
+
+    - name: Create user 'spark'
+      user:
+        name: spark
+        groups: spark
+        shell: /bin/bash
+        append: yes
+        create_home: false
+        home: /opt/spark
+
+    - name: Download Spark
+      get_url:
+        url: "{{ SPARK_DOWNLOAD_URL }}"
+        dest: "{{ SPARK_DOWNLOAD_DESTINATION }}"
+
+    - name: Unarchive Spark
+      unarchive:
+        remote_src: yes
+        src: "{{ SPARK_DOWNLOAD_DESTINATION }}"
+        dest: "{{ EXTRACT_DIR }}"
+        owner: spark
+        group: spark
+        creates: "{{ SPARK_LINK_DIR }}"
+
+    - name: Download Phoenix Connector
+      get_url:
+        url: "{{ PHOENIX_CONNECTOR_URL }}"
+        dest: "{{ PHOENIX_CONNECTOR_JAR }}"
+
+    - name: Create a symlink to spark
+      file:
+        src: "{{ SPARK_LINK_DIR }}"
+        dest: "{{ SPARK_HOME }}"
+        owner: spark
+        group: spark
+        state: link
+
+    - name: Create .ssh directory
+      file:
+        path: "/opt/spark/.ssh"
+        state: directory
+        mode: '0755'
+        owner: spark
+        group: spark
+
+    - name: Set authorized key
+      authorized_key:
+        user: spark
+        state: present
+        key: "{{ lookup('file', app_dir + '/credentials/spark.pub') }}"
+
+    - name: Set private key
+      copy:
+        src: "{{ app_dir }}/credentials/spark"
+        dest: "/opt/spark/.ssh/id_rsa"
+        owner: spark
+        group: spark
+        mode: '0600'
+
+    - name: Set public key
+      copy:
+        src: "{{ app_dir }}/credentials/spark.pub"
+        dest: "/opt/spark/.ssh/id_rsa.pub"
+        owner: spark
+        group: spark
+        mode: '0644'
+
+    - name: Recursively change permissions
+      file:
+        path: /opt/spark
+        state: directory
+        recurse: yes
+        owner: spark
+        group: spark
+
+    - name: Update Spark file system
+      when: ansible_host == SPARK_MASTER
+      become_user: spark
+      run_once: true
+      script:
+        cmd: "{{ app_dir }}/config_files/scripts/install.sh"

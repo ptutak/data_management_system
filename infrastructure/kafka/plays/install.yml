@@ -1,0 +1,111 @@
+# Copyright 2021 Piotr Tutak
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+- name: Kafka Installation
+  hosts: kafka
+  vars:
+    app_dir: "{{ inventory_dir }}/kafka"
+  vars_files:
+    - "{{ inventory_dir }}/common/credentials/passwd.yml"
+    - "{{ inventory_dir }}/common/variables/common.yml"
+    - "{{ app_dir }}/variables/kafka.yml"
+  tasks:
+    - name: Install Java 11
+      dnf:
+        name: java-11-openjdk-devel
+        state: latest
+
+    - name: Ensure group 'kafka' is present
+      group:
+        name: kafka
+        state: present
+
+    - name: Create user 'kafka'
+      user:
+        name: kafka
+        groups: kafka
+        shell: /sbin/nologin
+        append: yes
+        create_home: false
+        home: /opt/kafka
+
+    - name: Download 'Kafka'
+      get_url:
+        url: https://archive.apache.org/dist/kafka/2.5.0/kafka_2.13-2.5.0.tgz
+        dest: /opt/kafka_2.13-2.5.0.tgz
+
+    - name: Unarchive kafka archive
+      unarchive:
+        remote_src: yes
+        src: /opt/kafka_2.13-2.5.0.tgz
+        dest: /opt
+        owner: kafka
+        group: kafka
+        keep_newer: yes
+
+    - name: Create a symlink to
+      file:
+        src: /opt/kafka_2.13-2.5.0
+        dest: /opt/kafka
+        owner: kafka
+        group: kafka
+        state: link
+
+    - name: Create logs directory
+      file:
+        path: /opt/kafka/logs
+        state: directory
+        mode: 0755
+
+    - name: Download CMAK
+      when: ansible_host == CMAK_HOST
+      get_url:
+        url: 'https://github.com/yahoo/CMAK/releases/download/3.0.0.5/cmak-3.0.0.5.zip'
+        dest: /opt
+
+    - name: Unarchive CMAK
+      when: ansible_host == CMAK_HOST
+      unarchive:
+        remote_src: yes
+        src: /opt/cmak-3.0.0.5.zip
+        dest: /opt
+        owner: kafka
+        group: kafka
+        keep_newer: yes
+
+    - name: Create a symlink to CMAK
+      when: ansible_host == CMAK_HOST
+      file:
+        src: /opt/cmak-3.0.0.5
+        dest: /opt/cmak
+        owner: kafka
+        group: kafka
+        state: link
+
+    - name: Recursively change permissions
+      file:
+        path: /opt/kafka
+        state: directory
+        recurse: yes
+        owner: kafka
+        group: kafka
+
+    - name: Recursively change permissions CMAK
+      when: ansible_host == CMAK_HOST
+      file:
+        path: /opt/cmak
+        state: directory
+        recurse: yes
+        owner: kafka
+        group: kafka
